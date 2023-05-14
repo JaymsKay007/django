@@ -57,8 +57,8 @@ class TemplateCommand(BaseCommand):
 
     def handle(self, app_or_project, name, target=None, **options):
         self.app_or_project = app_or_project
-        self.a_or_an = 'an' if app_or_project == 'app' else 'a'
         self.paths_to_remove = []
+        self.a_or_an = 'an' if app_or_project == 'app' else 'a'
         self.verbosity = options['verbosity']
 
         self.validate_name(name)
@@ -69,7 +69,7 @@ class TemplateCommand(BaseCommand):
             try:
                 os.makedirs(top_dir)
             except FileExistsError:
-                raise CommandError("'%s' already exists" % top_dir)
+                raise CommandError(f"'{top_dir}' already exists")
             except OSError as e:
                 raise CommandError(e)
         else:
@@ -77,8 +77,9 @@ class TemplateCommand(BaseCommand):
                 self.validate_name(os.path.basename(target), 'directory')
             top_dir = os.path.abspath(os.path.expanduser(target))
             if not os.path.exists(top_dir):
-                raise CommandError("Destination directory '%s' does not "
-                                   "exist, please create it first." % top_dir)
+                raise CommandError(
+                    f"Destination directory '{top_dir}' does not exist, please create it first."
+                )
 
         extensions = tuple(handle_extensions(options['extensions']))
         extra_files = []
@@ -92,10 +93,10 @@ class TemplateCommand(BaseCommand):
                               "filenames: %s\n" %
                               (app_or_project, ', '.join(extra_files)))
 
-        base_name = '%s_name' % app_or_project
-        base_subdir = '%s_template' % app_or_project
-        base_directory = '%s_directory' % app_or_project
-        camel_case_name = 'camel_case_%s_name' % app_or_project
+        base_name = f'{app_or_project}_name'
+        base_subdir = f'{app_or_project}_template'
+        base_directory = f'{app_or_project}_directory'
+        camel_case_name = f'camel_case_{app_or_project}_name'
         camel_case_value = ''.join(x for x in name.title() if x != '_')
 
         context = Context({
@@ -143,10 +144,7 @@ class TemplateCommand(BaseCommand):
 
                 if os.path.exists(new_path):
                     raise CommandError(
-                        "%s already exists. Overlaying %s %s into an existing "
-                        "directory won't replace conflicting files." % (
-                            new_path, self.a_or_an, app_or_project,
-                        )
+                        f"{new_path} already exists. Overlaying {self.a_or_an} {app_or_project} into an existing directory won't replace conflicting files."
                     )
 
                 # Only render the Python files, as we don't want to
@@ -168,9 +166,9 @@ class TemplateCommand(BaseCommand):
                     self.make_writeable(new_path)
                 except OSError:
                     self.stderr.write(
-                        "Notice: Couldn't set permission bits on %s. You're "
-                        "probably using an uncommon filesystem setup. No "
-                        "problem." % new_path, self.style.NOTICE)
+                        f"Notice: Couldn't set permission bits on {new_path}. You're probably using an uncommon filesystem setup. No problem.",
+                        self.style.NOTICE,
+                    )
 
         if self.paths_to_remove:
             if self.verbosity >= 2:
@@ -189,23 +187,23 @@ class TemplateCommand(BaseCommand):
         """
         if template is None:
             return os.path.join(django.__path__[0], 'conf', subdir)
-        else:
-            if template.startswith('file://'):
-                template = template[7:]
-            expanded_template = os.path.expanduser(template)
-            expanded_template = os.path.normpath(expanded_template)
-            if os.path.isdir(expanded_template):
-                return expanded_template
-            if self.is_url(template):
-                # downloads the file and returns the path
-                absolute_path = self.download(template)
-            else:
-                absolute_path = os.path.abspath(expanded_template)
-            if os.path.exists(absolute_path):
-                return self.extract(absolute_path)
+        if template.startswith('file://'):
+            template = template[7:]
+        expanded_template = os.path.expanduser(template)
+        expanded_template = os.path.normpath(expanded_template)
+        if os.path.isdir(expanded_template):
+            return expanded_template
+        absolute_path = (
+            self.download(template)
+            if self.is_url(template)
+            else os.path.abspath(expanded_template)
+        )
+        if os.path.exists(absolute_path):
+            return self.extract(absolute_path)
 
-        raise CommandError("couldn't handle %s template %s." %
-                           (self.app_or_project, template))
+        raise CommandError(
+            f"couldn't handle {self.app_or_project} template {template}."
+        )
 
     def validate_name(self, name, name_or_dir='name'):
         if name is None:
@@ -247,13 +245,10 @@ class TemplateCommand(BaseCommand):
         def cleanup_url(url):
             tmp = url.rstrip('/')
             filename = tmp.split('/')[-1]
-            if url.endswith('/'):
-                display_url = tmp + '/'
-            else:
-                display_url = url
+            display_url = f'{tmp}/' if url.endswith('/') else url
             return filename, display_url
 
-        prefix = 'django_%s_template_' % self.app_or_project
+        prefix = f'django_{self.app_or_project}_template_'
         tempdir = tempfile.mkdtemp(prefix=prefix, suffix='_download')
         self.paths_to_remove.append(tempdir)
         filename, display_url = cleanup_url(url)
@@ -263,8 +258,7 @@ class TemplateCommand(BaseCommand):
         try:
             the_path, info = urlretrieve(url, os.path.join(tempdir, filename))
         except OSError as e:
-            raise CommandError("couldn't download URL %s to %s: %s" %
-                               (url, filename, e))
+            raise CommandError(f"couldn't download URL {url} to {filename}: {e}")
 
         used_name = the_path.split('/')[-1]
 
@@ -309,7 +303,7 @@ class TemplateCommand(BaseCommand):
         Extract the given file to a temporarily and return
         the path of the directory with the extracted content.
         """
-        prefix = 'django_%s_template_' % self.app_or_project
+        prefix = f'django_{self.app_or_project}_template_'
         tempdir = tempfile.mkdtemp(prefix=prefix, suffix='_extract')
         self.paths_to_remove.append(tempdir)
         if self.verbosity >= 2:
@@ -318,8 +312,7 @@ class TemplateCommand(BaseCommand):
             archive.extract(filename, tempdir)
             return tempdir
         except (archive.ArchiveException, OSError) as e:
-            raise CommandError("couldn't extract file %s to %s: %s" %
-                               (filename, tempdir, e))
+            raise CommandError(f"couldn't extract file {filename} to {tempdir}: {e}")
 
     def is_url(self, template):
         """Return True if the name looks like a URL."""

@@ -18,13 +18,13 @@ class AccessMixin:
         """
         Override this method to override the login_url attribute.
         """
-        login_url = self.login_url or settings.LOGIN_URL
-        if not login_url:
+        if login_url := self.login_url or settings.LOGIN_URL:
+            return str(login_url)
+        else:
             raise ImproperlyConfigured(
                 '{0} is missing the login_url attribute. Define {0}.login_url, settings.LOGIN_URL, or override '
                 '{0}.get_login_url().'.format(self.__class__.__name__)
             )
-        return str(login_url)
 
     def get_permission_denied_message(self):
         """
@@ -66,11 +66,11 @@ class PermissionRequiredMixin(AccessMixin):
                 '{0} is missing the permission_required attribute. Define {0}.permission_required, or override '
                 '{0}.get_permission_required().'.format(self.__class__.__name__)
             )
-        if isinstance(self.permission_required, str):
-            perms = (self.permission_required,)
-        else:
-            perms = self.permission_required
-        return perms
+        return (
+            (self.permission_required,)
+            if isinstance(self.permission_required, str)
+            else self.permission_required
+        )
 
     def has_permission(self):
         """
@@ -103,7 +103,7 @@ class UserPassesTestMixin(AccessMixin):
         return self.test_func
 
     def dispatch(self, request, *args, **kwargs):
-        user_test_result = self.get_test_func()()
-        if not user_test_result:
+        if user_test_result := self.get_test_func()():
+            return super().dispatch(request, *args, **kwargs)
+        else:
             return self.handle_no_permission()
-        return super().dispatch(request, *args, **kwargs)

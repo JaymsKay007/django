@@ -11,11 +11,7 @@ from django.utils.functional import cached_property
 class BaseMemcachedCache(BaseCache):
     def __init__(self, server, params, library, value_not_found_exception):
         super().__init__(params)
-        if isinstance(server, str):
-            self._servers = re.split('[;,]', server)
-        else:
-            self._servers = server
-
+        self._servers = re.split('[;,]', server) if isinstance(server, str) else server
         # The exception type to catch from the underlying library for a key
         # that was not found. This is a ValueError for python-memcache,
         # pylibmc.NotFound for pylibmc, and cmemcache will return None without
@@ -104,7 +100,7 @@ class BaseMemcachedCache(BaseCache):
         except self.LibraryValueNotFoundException:
             val = None
         if val is None:
-            raise ValueError("Key '%s' not found" % key)
+            raise ValueError(f"Key '{key}' not found")
         return val
 
     def decr(self, key, delta=1, version=None):
@@ -122,7 +118,7 @@ class BaseMemcachedCache(BaseCache):
         except self.LibraryValueNotFoundException:
             val = None
         if val is None:
-            raise ValueError("Key '%s' not found" % key)
+            raise ValueError(f"Key '{key}' not found")
         return val
 
     def set_many(self, data, timeout=DEFAULT_TIMEOUT, version=None):
@@ -152,7 +148,7 @@ class MemcachedCache(BaseMemcachedCache):
     def _cache(self):
         if getattr(self, '_client', None) is None:
             client_kwargs = {'pickleProtocol': pickle.HIGHEST_PROTOCOL}
-            client_kwargs.update(self._options)
+            client_kwargs |= self._options
             self._client = self._lib.Client(self._servers, **client_kwargs)
         return self._client
 
@@ -166,9 +162,7 @@ class MemcachedCache(BaseMemcachedCache):
         # python-memcached doesn't support default values in get().
         # https://github.com/linsomniac/python-memcached/issues/159
         # Remove this method if that issue is fixed.
-        if val is None:
-            return default
-        return val
+        return default if val is None else val
 
 
 class PyLibMCCache(BaseMemcachedCache):

@@ -66,14 +66,7 @@ class DatabaseCache(BaseDatabaseCache):
 
         with connection.cursor() as cursor:
             cursor.execute(
-                'SELECT %s, %s, %s FROM %s WHERE %s IN (%s)' % (
-                    quote_name('cache_key'),
-                    quote_name('value'),
-                    quote_name('expires'),
-                    table,
-                    quote_name('cache_key'),
-                    ', '.join(['%s'] * len(key_map)),
-                ),
+                f"SELECT {quote_name('cache_key')}, {quote_name('value')}, {quote_name('expires')} FROM {table} WHERE {quote_name('cache_key')} IN ({', '.join(['%s'] * len(key_map))})",
                 list(key_map),
             )
             rows = cursor.fetchall()
@@ -117,7 +110,7 @@ class DatabaseCache(BaseDatabaseCache):
         table = quote_name(self._table)
 
         with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM %s" % table)
+            cursor.execute(f"SELECT COUNT(*) FROM {table}")
             num = cursor.fetchone()[0]
             now = timezone.now()
             now = now.replace(microsecond=0)
@@ -217,11 +210,7 @@ class DatabaseCache(BaseDatabaseCache):
 
         with connection.cursor() as cursor:
             cursor.execute(
-                'DELETE FROM %s WHERE %s IN (%s)' % (
-                    table,
-                    quote_name('cache_key'),
-                    ', '.join(['%s'] * len(keys)),
-                ),
+                f"DELETE FROM {table} WHERE {quote_name('cache_key')} IN ({', '.join(['%s'] * len(keys))})",
                 keys,
             )
 
@@ -233,10 +222,7 @@ class DatabaseCache(BaseDatabaseCache):
         connection = connections[db]
         quote_name = connection.ops.quote_name
 
-        if settings.USE_TZ:
-            now = datetime.utcnow()
-        else:
-            now = datetime.now()
+        now = datetime.utcnow() if settings.USE_TZ else datetime.now()
         now = now.replace(microsecond=0)
 
         with connection.cursor() as cursor:
@@ -258,7 +244,7 @@ class DatabaseCache(BaseDatabaseCache):
             table = connection.ops.quote_name(self._table)
             cursor.execute("DELETE FROM %s WHERE expires < %%s" % table,
                            [connection.ops.adapt_datetimefield_value(now)])
-            cursor.execute("SELECT COUNT(*) FROM %s" % table)
+            cursor.execute(f"SELECT COUNT(*) FROM {table}")
             num = cursor.fetchone()[0]
             if num > self._max_entries:
                 cull_num = num // self._cull_frequency
@@ -274,4 +260,4 @@ class DatabaseCache(BaseDatabaseCache):
         connection = connections[db]
         table = connection.ops.quote_name(self._table)
         with connection.cursor() as cursor:
-            cursor.execute('DELETE FROM %s' % table)
+            cursor.execute(f'DELETE FROM {table}')

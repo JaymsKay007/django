@@ -43,7 +43,7 @@ class ExclusionConstraint(BaseConstraint):
             else:
                 expression = expression.resolve_expression(query=query)
             sql, params = expression.as_sql(compiler, connection)
-            expressions.append('%s WITH %s' % (sql % params, operator))
+            expressions.append(f'{sql % params} WITH {operator}')
         return expressions
 
     def _get_condition_sql(self, compiler, schema_editor, query):
@@ -62,7 +62,7 @@ class ExclusionConstraint(BaseConstraint):
             'name': schema_editor.quote_name(self.name),
             'index_type': self.index_type,
             'expressions': ', '.join(expressions),
-            'where': ' WHERE (%s)' % condition if condition else '',
+            'where': f' WHERE ({condition})' if condition else '',
         }
 
     def create_sql(self, model, schema_editor):
@@ -98,9 +98,4 @@ class ExclusionConstraint(BaseConstraint):
         )
 
     def __repr__(self):
-        return '<%s: index_type=%s, expressions=%s%s>' % (
-            self.__class__.__qualname__,
-            self.index_type,
-            self.expressions,
-            '' if self.condition is None else ', condition=%s' % self.condition,
-        )
+        return f"<{self.__class__.__qualname__}: index_type={self.index_type}, expressions={self.expressions}{'' if self.condition is None else f', condition={self.condition}'}>"

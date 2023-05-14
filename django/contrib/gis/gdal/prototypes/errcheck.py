@@ -47,10 +47,7 @@ def check_string(result, func, cargs, offset=-1, str_result=False):
     if str_result:
         # For routines that return a string.
         ptr = result
-        if not ptr:
-            s = None
-        else:
-            s = string_at(result)
+        s = None if not ptr else string_at(result)
     else:
         # Error-code return specified.
         check_err(result)
@@ -80,7 +77,9 @@ def check_geom(result, func, cargs):
     if isinstance(result, int):
         result = c_void_p(result)
     if not result:
-        raise GDALException('Invalid geometry pointer returned from "%s".' % func.__name__)
+        raise GDALException(
+            f'Invalid geometry pointer returned from "{func.__name__}".'
+        )
     return result
 
 
@@ -96,7 +95,9 @@ def check_srs(result, func, cargs):
     if isinstance(result, int):
         result = c_void_p(result)
     if not result:
-        raise SRSException('Invalid spatial reference pointer returned from "%s".' % func.__name__)
+        raise SRSException(
+            f'Invalid spatial reference pointer returned from "{func.__name__}".'
+        )
     return result
 
 
@@ -124,7 +125,7 @@ def check_pointer(result, func, cargs):
     if result:
         return result
     else:
-        raise GDALException('Invalid pointer returned from "%s"' % func.__name__)
+        raise GDALException(f'Invalid pointer returned from "{func.__name__}"')
 
 
 def check_str_arg(result, func, cargs):
