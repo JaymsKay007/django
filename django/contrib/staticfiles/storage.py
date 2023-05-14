@@ -99,9 +99,8 @@ class HashedFilesMixin:
         path, filename = os.path.split(clean_name)
         root, ext = os.path.splitext(filename)
         if file_hash is not None:
-            file_hash = ".%s" % file_hash
-        hashed_name = os.path.join(path, "%s%s%s" %
-                                   (root, file_hash, ext))
+            file_hash = f".{file_hash}"
+        hashed_name = os.path.join(path, f"{root}{file_hash}{ext}")
         unparsed_name = list(parsed_name)
         unparsed_name[2] = hashed_name
         # Special casing for a @font-face hack, like url(myfont.eot?#iefix")
@@ -234,7 +233,7 @@ class HashedFilesMixin:
 
         paths = {path: paths[path] for path in adjustable_paths}
 
-        for i in range(self.max_post_process_passes):
+        for _ in range(self.max_post_process_passes):
             substitutions = False
             for name, hashed_name, processed, subst in self._post_process(paths, adjustable_paths, hashed_files):
                 yield name, hashed_name, processed
@@ -342,12 +341,11 @@ class HashedFilesMixin:
     def stored_name(self, name):
         cleaned_name = self.clean_name(name)
         hash_key = self.hash_key(cleaned_name)
-        cache_name = self.hashed_files.get(hash_key)
-        if cache_name:
+        if cache_name := self.hashed_files.get(hash_key):
             return cache_name
         # No cached name found, recalculate it from the files.
         intermediate_name = name
-        for i in range(self.max_post_process_passes + 1):
+        for _ in range(self.max_post_process_passes + 1):
             cache_name = self.clean_name(
                 self.hashed_name(name, content=None, filename=intermediate_name)
             )
@@ -392,8 +390,9 @@ class ManifestFilesMixin(HashedFilesMixin):
             version = stored.get('version')
             if version == '1.0':
                 return stored.get('paths', {})
-        raise ValueError("Couldn't load manifest '%s' (version %s)" %
-                         (self.manifest_name, self.manifest_version))
+        raise ValueError(
+            f"Couldn't load manifest '{self.manifest_name}' (version {self.manifest_version})"
+        )
 
     def post_process(self, *args, **kwargs):
         self.hashed_files = {}
@@ -414,7 +413,7 @@ class ManifestFilesMixin(HashedFilesMixin):
         cache_name = self.hashed_files.get(hash_key)
         if cache_name is None:
             if self.manifest_strict:
-                raise ValueError("Missing staticfiles manifest entry for '%s'" % clean_name)
+                raise ValueError(f"Missing staticfiles manifest entry for '{clean_name}'")
             cache_name = self.clean_name(self.hashed_name(name))
         unparsed_name = list(parsed_name)
         unparsed_name[2] = cache_name

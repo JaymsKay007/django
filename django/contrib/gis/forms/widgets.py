@@ -29,7 +29,7 @@ class BaseGeometryWidget(Widget):
         for key in ('geom_type', 'map_srid', 'map_width', 'map_height', 'display_raw'):
             self.attrs[key] = getattr(self, key)
         if attrs:
-            self.attrs.update(attrs)
+            self.attrs |= attrs
 
     def serialize(self, value):
         return value.wkt if value else ''
@@ -61,15 +61,20 @@ class BaseGeometryWidget(Widget):
                         value.srid, self.map_srid, err
                     )
 
-        context.update(self.build_attrs(self.attrs, {
-            'name': name,
-            'module': 'geodjango_%s' % name.replace('-', '_'),  # JS-safe
-            'serialized': self.serialize(value),
-            'geom_type': gdal.OGRGeomType(self.attrs['geom_type']),
-            'STATIC_URL': settings.STATIC_URL,
-            'LANGUAGE_BIDI': translation.get_language_bidi(),
-            **(attrs or {}),
-        }))
+        context.update(
+            self.build_attrs(
+                self.attrs,
+                {
+                    'name': name,
+                    'module': f"geodjango_{name.replace('-', '_')}",
+                    'serialized': self.serialize(value),
+                    'geom_type': gdal.OGRGeomType(self.attrs['geom_type']),
+                    'STATIC_URL': settings.STATIC_URL,
+                    'LANGUAGE_BIDI': translation.get_language_bidi(),
+                    **(attrs or {}),
+                },
+            )
+        )
         return context
 
 

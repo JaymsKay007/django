@@ -82,10 +82,9 @@ class SessionBase:
     def setdefault(self, key, value):
         if key in self._session:
             return self._session[key]
-        else:
-            self.modified = True
-            self._session[key] = value
-            return value
+        self.modified = True
+        self._session[key] = value
+        return value
 
     def set_test_cookie(self):
         self[self.TEST_COOKIE_NAME] = self.TEST_COOKIE_VALUE
@@ -97,7 +96,7 @@ class SessionBase:
         del self[self.TEST_COOKIE_NAME]
 
     def _hash(self, value):
-        key_salt = "django.contrib.sessions" + self.__class__.__name__
+        key_salt = f"django.contrib.sessions{self.__class__.__name__}"
         return salted_hmac(key_salt, value).hexdigest()
 
     def encode(self, session_dict):
@@ -120,7 +119,7 @@ class SessionBase:
             # ValueError, SuspiciousOperation, unpickling exceptions. If any of
             # these happen, just return an empty dictionary (an empty session).
             if isinstance(e, SuspiciousOperation):
-                logger = logging.getLogger('django.security.%s' % e.__class__.__name__)
+                logger = logging.getLogger(f'django.security.{e.__class__.__name__}')
                 logger.warning(str(e))
             return {}
 
@@ -181,10 +180,7 @@ class SessionBase:
         """
         Validate session key on assignment. Invalid values will set to None.
         """
-        if self._validate_session_key(value):
-            self.__session_key = value
-        else:
-            self.__session_key = None
+        self.__session_key = value if self._validate_session_key(value) else None
 
     session_key = property(_get_session_key)
     _session_key = property(_get_session_key, _set_session_key)

@@ -18,7 +18,7 @@ class SearchVectorExact(Lookup):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s @@ %s = true' % (lhs, rhs), params
+        return f'{lhs} @@ {rhs} = true', params
 
 
 class SearchVectorField(Field):
@@ -37,7 +37,10 @@ class SearchVectorCombinable:
     ADD = '||'
 
     def _combine(self, other, connector, reversed):
-        if not isinstance(other, SearchVectorCombinable) or not self.config == other.config:
+        if (
+            not isinstance(other, SearchVectorCombinable)
+            or self.config != other.config
+        ):
             raise TypeError('SearchVector can only be combined with other SearchVectors')
         if reversed:
             return CombinedSearchVector(other, connector, self, self.config)
@@ -81,14 +84,14 @@ class SearchVector(SearchVectorCombinable, Func):
         if template is None:
             if clone.config:
                 config_sql, config_params = compiler.compile(clone.config)
-                template = '%(function)s({}::regconfig, %(expressions)s)'.format(config_sql.replace('%', '%%'))
+                template = f"%(function)s({config_sql.replace('%', '%%')}::regconfig, %(expressions)s)"
             else:
                 template = clone.template
         sql, params = super(SearchVector, clone).as_sql(compiler, connection, function=function, template=template)
         extra_params = []
         if clone.weight:
             weight_sql, extra_params = compiler.compile(clone.weight)
-            sql = 'setweight({}, {})'.format(sql, weight_sql)
+            sql = f'setweight({sql}, {weight_sql})'
         return sql, config_params + params + extra_params
 
 
@@ -105,8 +108,7 @@ class SearchQueryCombinable:
     def _combine(self, other, connector, reversed):
         if not isinstance(other, SearchQueryCombinable):
             raise TypeError(
-                'SearchQuery can only be combined with other SearchQuerys, '
-                'got {}.'.format(type(other))
+                f'SearchQuery can only be combined with other SearchQuerys, got {type(other)}.'
             )
         if reversed:
             return CombinedSearchQuery(other, connector, self, self.config)
@@ -140,7 +142,7 @@ class SearchQuery(SearchQueryCombinable, Value):
         self.config = config
         self.invert = invert
         if search_type not in self.SEARCH_TYPES:
-            raise ValueError("Unknown search_type argument '%s'." % search_type)
+            raise ValueError(f"Unknown search_type argument '{search_type}'.")
         self.search_type = search_type
         super().__init__(value, output_field=output_field)
 
@@ -158,12 +160,12 @@ class SearchQuery(SearchQueryCombinable, Value):
         function = self.SEARCH_TYPES[self.search_type]
         if self.config:
             config_sql, config_params = compiler.compile(self.config)
-            template = '{}({}::regconfig, %s)'.format(function, config_sql)
+            template = f'{function}({config_sql}::regconfig, %s)'
             params = config_params + [self.value]
         else:
-            template = '{}(%s)'.format(function)
+            template = f'{function}(%s)'
         if self.invert:
-            template = '!!({})'.format(template)
+            template = f'!!({template})'
         return template, params
 
     def _combine(self, other, connector, reversed):
@@ -176,7 +178,7 @@ class SearchQuery(SearchQueryCombinable, Value):
 
     def __str__(self):
         result = super().__str__()
-        return ('~%s' % result) if self.invert else result
+        return f'~{result}' if self.invert else result
 
 
 class CombinedSearchQuery(SearchQueryCombinable, CombinedExpression):
@@ -185,7 +187,7 @@ class CombinedSearchQuery(SearchQueryCombinable, CombinedExpression):
         super().__init__(lhs, connector, rhs, output_field)
 
     def __str__(self):
-        return '(%s)' % super().__str__()
+        return f'({super().__str__()})'
 
 
 class SearchRank(Func):

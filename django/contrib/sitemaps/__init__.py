@@ -24,7 +24,7 @@ def ping_google(sitemap_url=None, ping_url=PING_URL, sitemap_uses_https=True):
     """
     sitemap_full_url = _get_sitemap_full_url(sitemap_url, sitemap_uses_https)
     params = urlencode({'sitemap': sitemap_full_url})
-    urlopen('%s?%s' % (ping_url, params))
+    urlopen(f'{ping_url}?{params}')
 
 
 def _get_sitemap_full_url(sitemap_url, sitemap_uses_https=True):
@@ -48,7 +48,7 @@ def _get_sitemap_full_url(sitemap_url, sitemap_uses_https=True):
     Site = django_apps.get_model('sites.Site')
     current_site = Site.objects.get_current()
     scheme = 'https' if sitemap_uses_https else 'http'
-    return '%s://%s%s' % (scheme, current_site.domain, sitemap_url)
+    return f'{scheme}://{current_site.domain}{sitemap_url}'
 
 
 class Sitemap:
@@ -65,9 +65,7 @@ class Sitemap:
             attr = getattr(self, name)
         except AttributeError:
             return default
-        if callable(attr):
-            return attr(obj)
-        return attr
+        return attr(obj) if callable(attr) else attr
 
     def items(self):
         return []
@@ -94,11 +92,11 @@ class Sitemap:
                     site = Site.objects.get_current()
                 except Site.DoesNotExist:
                     pass
-            if site is None:
-                raise ImproperlyConfigured(
-                    "To use sitemaps, either enable the sites framework or pass "
-                    "a Site/RequestSite object in your view."
-                )
+        if site is None:
+            raise ImproperlyConfigured(
+                "To use sitemaps, either enable the sites framework or pass "
+                "a Site/RequestSite object in your view."
+            )
         domain = site.domain
 
         if getattr(self, 'i18n', False):
@@ -118,14 +116,14 @@ class Sitemap:
         latest_lastmod = None
         all_items_lastmod = True  # track if all items have a lastmod
         for item in self.paginator.page(page).object_list:
-            loc = "%s://%s%s" % (protocol, domain, self.__get('location', item))
+            loc = f"{protocol}://{domain}{self.__get('location', item)}"
             priority = self.__get('priority', item)
             lastmod = self.__get('lastmod', item)
             if all_items_lastmod:
                 all_items_lastmod = lastmod is not None
-                if (all_items_lastmod and
-                        (latest_lastmod is None or lastmod > latest_lastmod)):
-                    latest_lastmod = lastmod
+            if (all_items_lastmod and
+                    (latest_lastmod is None or lastmod > latest_lastmod)):
+                latest_lastmod = lastmod
             url_info = {
                 'item': item,
                 'location': loc,
@@ -155,9 +153,7 @@ class GenericSitemap(Sitemap):
         return self.queryset.filter()
 
     def lastmod(self, item):
-        if self.date_field is not None:
-            return getattr(item, self.date_field)
-        return None
+        return getattr(item, self.date_field) if self.date_field is not None else None
 
 
 default_app_config = 'django.contrib.sitemaps.apps.SiteMapsConfig'

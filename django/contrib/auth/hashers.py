@@ -318,7 +318,7 @@ class Argon2PasswordHasher(BasePasswordHasher):
         assert algorithm == self.algorithm
         try:
             return argon2.low_level.verify_secret(
-                ('$' + rest).encode('ascii'),
+                f'${rest}'.encode('ascii'),
                 password.encode(),
                 type=argon2.low_level.Type.I,
             )
@@ -413,7 +413,7 @@ class BCryptSHA256PasswordHasher(BasePasswordHasher):
             password = binascii.hexlify(self.digest(password).digest())
 
         data = bcrypt.hashpw(password, salt)
-        return "%s$%s" % (self.algorithm, data.decode('ascii'))
+        return f"{self.algorithm}${data.decode('ascii')}"
 
     def verify(self, password, encoded):
         algorithm, data = encoded.split('$', 1)
@@ -474,7 +474,7 @@ class SHA1PasswordHasher(BasePasswordHasher):
         assert password is not None
         assert salt and '$' not in salt
         hash = hashlib.sha1((salt + password).encode()).hexdigest()
-        return "%s$%s$%s" % (self.algorithm, salt, hash)
+        return f"{self.algorithm}${salt}${hash}"
 
     def verify(self, password, encoded):
         algorithm, salt, hash = encoded.split('$', 2)
@@ -505,7 +505,7 @@ class MD5PasswordHasher(BasePasswordHasher):
         assert password is not None
         assert salt and '$' not in salt
         hash = hashlib.md5((salt + password).encode()).hexdigest()
-        return "%s$%s$%s" % (self.algorithm, salt, hash)
+        return f"{self.algorithm}${salt}${hash}"
 
     def verify(self, password, encoded):
         algorithm, salt, hash = encoded.split('$', 2)
@@ -543,7 +543,7 @@ class UnsaltedSHA1PasswordHasher(BasePasswordHasher):
     def encode(self, password, salt):
         assert salt == ''
         hash = hashlib.sha1(password.encode()).hexdigest()
-        return 'sha1$$%s' % hash
+        return f'sha1$${hash}'
 
     def verify(self, password, encoded):
         encoded_2 = self.encode(password, '')
@@ -615,7 +615,7 @@ class CryptPasswordHasher(BasePasswordHasher):
         data = crypt.crypt(password, salt)
         assert data is not None  # A platform like OpenBSD with a dummy crypt module.
         # we don't need to store the salt, but Django used to do this
-        return "%s$%s$%s" % (self.algorithm, '', data)
+        return f"{self.algorithm}$${data}"
 
     def verify(self, password, encoded):
         crypt = self._load_library()

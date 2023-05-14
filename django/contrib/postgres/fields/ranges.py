@@ -22,7 +22,7 @@ class RangeBoundary(models.Expression):
         self.upper = ']' if inclusive_upper else ')'
 
     def as_sql(self, compiler, connection):
-        return "'%s%s'" % (self.lower, self.upper), []
+        return f"'{self.lower}{self.upper}'", []
 
 
 class RangeOperators:
@@ -53,7 +53,9 @@ class RangeField(models.Field):
         try:
             return self.__dict__['model']
         except KeyError:
-            raise AttributeError("'%s' object has no attribute 'model'" % self.__class__.__name__)
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute 'model'"
+            )
 
     @model.setter
     def model(self, model):
@@ -184,8 +186,8 @@ class DateTimeRangeContains(lookups.PostgresSimpleLookup):
             not isinstance(self.rhs._output_field_or_none, self.lhs.output_field.__class__)
         ):
             cast_internal_type = self.lhs.output_field.base_field.get_internal_type()
-            cast_sql = '::{}'.format(connection.data_types.get(cast_internal_type))
-        return '%s%s' % (sql, cast_sql), params
+            cast_sql = f'::{connection.data_types.get(cast_internal_type)}'
+        return f'{sql}{cast_sql}', params
 
 
 DateRangeField.register_lookup(DateTimeRangeContains)
@@ -206,12 +208,12 @@ class RangeContainedBy(lookups.PostgresSimpleLookup):
     def process_rhs(self, compiler, connection):
         rhs, rhs_params = super().process_rhs(compiler, connection)
         cast_type = self.type_mapping[self.lhs.output_field.db_type(connection)]
-        return '%s::%s' % (rhs, cast_type), rhs_params
+        return f'{rhs}::{cast_type}', rhs_params
 
     def process_lhs(self, compiler, connection):
         lhs, lhs_params = super().process_lhs(compiler, connection)
         if isinstance(self.lhs.output_field, models.FloatField):
-            lhs = '%s::numeric' % lhs
+            lhs = f'{lhs}::numeric'
         return lhs, lhs_params
 
     def get_prep_lookup(self):

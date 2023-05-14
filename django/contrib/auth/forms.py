@@ -35,8 +35,10 @@ class ReadOnlyPasswordHashWidget(forms.Widget):
             except ValueError:
                 summary.append({'label': gettext("Invalid password format or unknown hashing algorithm.")})
             else:
-                for key, value_ in hasher.safe_summary(value).items():
-                    summary.append({'label': gettext(key), 'value': value_})
+                summary.extend(
+                    {'label': gettext(key), 'value': value_}
+                    for key, value_ in hasher.safe_summary(value).items()
+                )
         context['summary'] = summary
         return context
 
@@ -112,10 +114,7 @@ class UserCreationForm(forms.ModelForm):
 
     def _post_clean(self):
         super()._post_clean()
-        # Validate the password after self.instance is updated with form data
-        # by super().
-        password = self.cleaned_data.get('password2')
-        if password:
+        if password := self.cleaned_data.get('password2'):
             try:
                 password_validation.validate_password(password, self.instance)
             except forms.ValidationError as error:
@@ -146,11 +145,9 @@ class UserChangeForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        password = self.fields.get('password')
-        if password:
+        if password := self.fields.get('password'):
             password.help_text = password.help_text.format('../password/')
-        user_permissions = self.fields.get('user_permissions')
-        if user_permissions:
+        if user_permissions := self.fields.get('user_permissions'):
             user_permissions.queryset = user_permissions.queryset.select_related('content_type')
 
     def clean_password(self):
@@ -269,10 +266,12 @@ class PasswordResetForm(forms.Form):
         that prevent inactive users and users with unusable passwords from
         resetting their password.
         """
-        active_users = UserModel._default_manager.filter(**{
-            '%s__iexact' % UserModel.get_email_field_name(): email,
-            'is_active': True,
-        })
+        active_users = UserModel._default_manager.filter(
+            **{
+                f'{UserModel.get_email_field_name()}__iexact': email,
+                'is_active': True,
+            }
+        )
         return (u for u in active_users if u.has_usable_password())
 
     def save(self, domain_override=None,
@@ -431,7 +430,4 @@ class AdminPasswordChangeForm(forms.Form):
     @property
     def changed_data(self):
         data = super().changed_data
-        for name in self.fields:
-            if name not in data:
-                return []
-        return ['password']
+        return next(([] for name in self.fields if name not in data), ['password'])

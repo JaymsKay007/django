@@ -88,13 +88,9 @@ class Command(BaseCommand):
         # Raise an error if any migrations are applied before their dependencies.
         executor.loader.check_consistent_history(connection)
 
-        # Before anything else, see if there's conflicting apps and drop out
-        # hard if there are any
-        conflicts = executor.loader.detect_conflicts()
-        if conflicts:
+        if conflicts := executor.loader.detect_conflicts():
             name_str = "; ".join(
-                "%s in %s" % (", ".join(names), app)
-                for app, names in conflicts.items()
+                f'{", ".join(names)} in {app}' for app, names in conflicts.items()
             )
             raise CommandError(
                 "Conflicting migrations detected; multiple leaf nodes in the "
@@ -114,9 +110,11 @@ class Command(BaseCommand):
                 raise CommandError(str(err))
             if run_syncdb:
                 if app_label in executor.loader.migrated_apps:
-                    raise CommandError("Can't use run_syncdb with app '%s' as it has migrations." % app_label)
+                    raise CommandError(
+                        f"Can't use run_syncdb with app '{app_label}' as it has migrations."
+                    )
             elif app_label not in executor.loader.migrated_apps:
-                raise CommandError("App '%s' does not have migrations." % app_label)
+                raise CommandError(f"App '{app_label}' does not have migrations.")
 
         if options['app_label'] and options['migration_name']:
             migration_name = options['migration_name']
@@ -127,13 +125,12 @@ class Command(BaseCommand):
                     migration = executor.loader.get_migration_by_prefix(app_label, migration_name)
                 except AmbiguityError:
                     raise CommandError(
-                        "More than one migration matches '%s' in app '%s'. "
-                        "Please be more specific." %
-                        (migration_name, app_label)
+                        f"More than one migration matches '{migration_name}' in app '{app_label}'. Please be more specific."
                     )
                 except KeyError:
-                    raise CommandError("Cannot find a migration matching '%s' from app '%s'." % (
-                        migration_name, app_label))
+                    raise CommandError(
+                        f"Cannot find a migration matching '{migration_name}' from app '{app_label}'."
+                    )
                 targets = [(app_label, migration.name)]
             target_app_labels_only = False
         elif options['app_label']:
@@ -152,7 +149,7 @@ class Command(BaseCommand):
                 for operation in migration.operations:
                     message, is_error = self.describe_operation(operation, backwards)
                     style = self.style.WARNING if is_error else None
-                    self.stdout.write('    ' + message, style)
+                    self.stdout.write(f'    {message}', style)
             return
 
         # At this point, ignore run_syncdb if there aren't any apps to sync.
@@ -163,7 +160,9 @@ class Command(BaseCommand):
             if run_syncdb:
                 if options['app_label']:
                     self.stdout.write(
-                        self.style.MIGRATE_LABEL("  Synchronize unmigrated app: %s" % app_label)
+                        self.style.MIGRATE_LABEL(
+                            f"  Synchronize unmigrated app: {app_label}"
+                        )
                     )
                 else:
                     self.stdout.write(
@@ -175,16 +174,16 @@ class Command(BaseCommand):
                     self.style.MIGRATE_LABEL("  Apply all migrations: ") +
                     (", ".join(sorted({a for a, n in targets})) or "(none)")
                 )
+            elif targets[0][1] is None:
+                self.stdout.write(
+                    self.style.MIGRATE_LABEL("  Unapply all migrations: ")
+                    + f"{targets[0][0]}"
+                )
             else:
-                if targets[0][1] is None:
-                    self.stdout.write(self.style.MIGRATE_LABEL(
-                        "  Unapply all migrations: ") + "%s" % (targets[0][0],)
-                    )
-                else:
-                    self.stdout.write(self.style.MIGRATE_LABEL(
-                        "  Target specific migration: ") + "%s, from %s"
-                        % (targets[0][1], targets[0][0])
-                    )
+                self.stdout.write(
+                    self.style.MIGRATE_LABEL("  Target specific migration: ")
+                    + f"{targets[0][1]}, from {targets[0][0]}"
+                )
 
         pre_migrate_state = executor._create_project_state(with_applied_migrations=True)
         pre_migrate_apps = pre_migrate_state.apps
@@ -212,8 +211,7 @@ class Command(BaseCommand):
                     executor.loader.project_state(),
                     ProjectState.from_apps(apps),
                 )
-                changes = autodetector.changes(graph=executor.loader.graph)
-                if changes:
+                if changes := autodetector.changes(graph=executor.loader.graph):
                     self.stdout.write(self.style.NOTICE(
                         "  Your models have changes that are not yet reflected "
                         "in a migration, and so won't be applied."
@@ -257,38 +255,39 @@ class Command(BaseCommand):
         )
 
     def migration_progress_callback(self, action, migration=None, fake=False):
-        if self.verbosity >= 1:
-            compute_time = self.verbosity > 1
-            if action == "apply_start":
-                if compute_time:
-                    self.start = time.monotonic()
-                self.stdout.write("  Applying %s..." % migration, ending="")
-                self.stdout.flush()
-            elif action == "apply_success":
-                elapsed = " (%.3fs)" % (time.monotonic() - self.start) if compute_time else ""
-                if fake:
-                    self.stdout.write(self.style.SUCCESS(" FAKED" + elapsed))
-                else:
-                    self.stdout.write(self.style.SUCCESS(" OK" + elapsed))
-            elif action == "unapply_start":
-                if compute_time:
-                    self.start = time.monotonic()
-                self.stdout.write("  Unapplying %s..." % migration, ending="")
-                self.stdout.flush()
-            elif action == "unapply_success":
-                elapsed = " (%.3fs)" % (time.monotonic() - self.start) if compute_time else ""
-                if fake:
-                    self.stdout.write(self.style.SUCCESS(" FAKED" + elapsed))
-                else:
-                    self.stdout.write(self.style.SUCCESS(" OK" + elapsed))
-            elif action == "render_start":
-                if compute_time:
-                    self.start = time.monotonic()
-                self.stdout.write("  Rendering model states...", ending="")
-                self.stdout.flush()
-            elif action == "render_success":
-                elapsed = " (%.3fs)" % (time.monotonic() - self.start) if compute_time else ""
-                self.stdout.write(self.style.SUCCESS(" DONE" + elapsed))
+        if self.verbosity < 1:
+            return
+        compute_time = self.verbosity > 1
+        if action == "apply_start":
+            if compute_time:
+                self.start = time.monotonic()
+            self.stdout.write(f"  Applying {migration}...", ending="")
+            self.stdout.flush()
+        elif action == "apply_success":
+            elapsed = " (%.3fs)" % (time.monotonic() - self.start) if compute_time else ""
+            if fake:
+                self.stdout.write(self.style.SUCCESS(f" FAKED{elapsed}"))
+            else:
+                self.stdout.write(self.style.SUCCESS(f" OK{elapsed}"))
+        elif action == "unapply_start":
+            if compute_time:
+                self.start = time.monotonic()
+            self.stdout.write(f"  Unapplying {migration}...", ending="")
+            self.stdout.flush()
+        elif action == "unapply_success":
+            elapsed = " (%.3fs)" % (time.monotonic() - self.start) if compute_time else ""
+            if fake:
+                self.stdout.write(self.style.SUCCESS(f" FAKED{elapsed}"))
+            else:
+                self.stdout.write(self.style.SUCCESS(f" OK{elapsed}"))
+        elif action == "render_start":
+            if compute_time:
+                self.start = time.monotonic()
+            self.stdout.write("  Rendering model states...", ending="")
+            self.stdout.flush()
+        elif action == "render_success":
+            elapsed = " (%.3fs)" % (time.monotonic() - self.start) if compute_time else ""
+            self.stdout.write(self.style.SUCCESS(f" DONE{elapsed}"))
 
     def sync_apps(self, connection, app_labels):
         """Run the old syncdb-style operation on a list of app_labels."""
@@ -359,6 +358,6 @@ class Command(BaseCommand):
             action = str(action).replace('\n', '')
             is_error = False
         if action:
-            action = ' -> ' + action
+            action = f' -> {action}'
         truncated = Truncator(action)
         return prefix + operation.describe() + truncated.chars(40), is_error
